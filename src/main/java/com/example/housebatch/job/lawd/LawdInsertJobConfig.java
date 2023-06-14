@@ -1,6 +1,7 @@
 package com.example.housebatch.job.lawd;
 
 import com.example.housebatch.core.entity.Lawd;
+import com.example.housebatch.core.service.LawdService;
 import com.example.housebatch.job.validator.FilePathParameterValidator;
 import lombok.RequiredArgsConstructor;
 
@@ -21,8 +22,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
-import java.util.List;
-
 import static com.example.housebatch.job.lawd.LawdFieldSetMapper.EXIST;
 import static com.example.housebatch.job.lawd.LawdFieldSetMapper.LAWD_CD;
 import static com.example.housebatch.job.lawd.LawdFieldSetMapper.LAWD_DONG;
@@ -31,12 +30,10 @@ import static com.example.housebatch.job.lawd.LawdFieldSetMapper.LAWD_DONG;
 @RequiredArgsConstructor
 @Slf4j
 public class LawdInsertJobConfig {
-
-    @Autowired
     private final JobBuilderFactory jobBuilderFactory;
-
-    @Autowired
     private final StepBuilderFactory stepBuilderFactory;
+
+    private final LawdService lawdService;
 
     @Bean
     public Job lawdInsertJob(Step lawdInsertStep) {
@@ -77,6 +74,6 @@ public class LawdInsertJobConfig {
     @Bean
     @StepScope
     public ItemWriter<Lawd> lawdItemWriter() {
-        return items -> items.forEach(System.out::println);
+        return items -> items.forEach(lawdService::upsert);
     }
 }

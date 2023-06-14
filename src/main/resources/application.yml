@@ -23,7 +23,10 @@ spring:
   batch:
     jdbc:
       initialize-schema: ALWAYS
-
+external:
+  apartment-api:
+    path: <openapi-url>
+    service-key: <openapi-serviceKey>
 ---
 spring:
   config:
