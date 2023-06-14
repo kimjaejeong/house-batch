@@ -6,10 +6,7 @@ import com.example.housebatch.core.repository.LawdRepository;
 import com.example.housebatch.job.validator.YearMonthParameterValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobParametersValidator;
-import org.springframework.batch.core.Step;
-import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.JobScope;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -39,32 +36,37 @@ public class AptDealInsertJobConfig {
     private final StepBuilderFactory stepBuilderFactory;
 
     private final ApartmentApiResource apartmentApiResource;
-    private final LawdRepository lawdRepository;
 
     @Bean
     public Job aptDealInsertJob(
             Step guLawdCdStep,
-            Step contextPrintStep,
-            Step aptDealInsertStep
+            Step contextPrintStep
+//            Step aptDealInsertStep
     ) {
+        
+        // CONTINUABLE: 계속 진행
         return jobBuilderFactory.get("aptDealInsertJob")
                 .incrementer(new RunIdIncrementer())
-                .validator(aptDealJobParameterValidator())
+//                .validator(aptDealJobParameterValidator())
+                .validator(new YearMonthParameterValidator())
                 .start(guLawdCdStep)
                 .next(contextPrintStep)
-                .next(aptDealInsertStep)
+                .on("CONTINUABLE").to(contextPrintStep).next(guLawdCdStep)
+                .from(guLawdCdStep)
+                .on("*").end()
+                .end()
                 .build();
     }
 
 
     // validation을 여러개 하기 위함
-    private JobParametersValidator aptDealJobParameterValidator() {
-        CompositeJobParametersValidator validator = new CompositeJobParametersValidator();
-        validator.setValidators(Arrays.asList(
-                new YearMonthParameterValidator()
-        ));
-        return validator;
-    }
+//    private JobParametersValidator aptDealJobParameterValidator() {
+//        CompositeJobParametersValidator validator = new CompositeJobParametersValidator();
+//        validator.setValidators(Arrays.asList(
+//                new YearMonthParameterValidator()
+//        ));
+//        return validator;
+//    }
 
     @JobScope
     @Bean
@@ -76,16 +78,8 @@ public class AptDealInsertJobConfig {
 
     @StepScope
     @Bean
-    public Tasklet guLawdCdTasklet() {
-        return (stepContribution, chunkContext) -> {
-            StepExecution stepExecution = chunkContext.getStepContext().getStepExecution();
-            ExecutionContext executionContext = stepExecution.getJobExecution().getExecutionContext();
-
-            List<String> guLawdCds = lawdRepository.findDistinctGuLawdCd();
-            executionContext.putString("guLawdCd", guLawdCds.get(0));
-
-            return RepeatStatus.FINISHED;
-        };
+    public Tasklet guLawdCdTasklet(LawdRepository lawdRepository) {
+        return new GuLawdTasklet(lawdRepository);
     }
 
     @JobScope
@@ -95,7 +89,6 @@ public class AptDealInsertJobConfig {
                 .tasklet(contextPrintTasklet)
                 .build();
     }
-
 
     // jobExecutionContext 파라미터를 통해 executionContext 값을 가져올 수 있음
     @StepScope
