@@ -3,6 +3,7 @@ package com.example.housebatch.job.apt;
 import com.example.housebatch.adapter.ApartmentApiResource;
 import com.example.housebatch.core.dto.AptDealDto;
 import com.example.housebatch.core.repository.LawdRepository;
+import com.example.housebatch.core.service.AptDealService;
 import com.example.housebatch.job.validator.YearMonthParameterValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,8 +26,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.oxm.jaxb.Jaxb2Marshaller;
 
 import java.time.YearMonth;
-import java.util.Arrays;
-import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
@@ -40,8 +39,7 @@ public class AptDealInsertJobConfig {
     @Bean
     public Job aptDealInsertJob(
             Step guLawdCdStep,
-            Step contextPrintStep
-//            Step aptDealInsertStep
+            Step aptDealInsertStep
     ) {
         
         // CONTINUABLE: 계속 진행
@@ -50,8 +48,7 @@ public class AptDealInsertJobConfig {
 //                .validator(aptDealJobParameterValidator())
                 .validator(new YearMonthParameterValidator())
                 .start(guLawdCdStep)
-                .next(contextPrintStep)
-                .on("CONTINUABLE").to(contextPrintStep).next(guLawdCdStep)
+                .on("CONTINUABLE").to(aptDealInsertStep).next(guLawdCdStep)
                 .from(guLawdCdStep)
                 .on("*").end()
                 .end()
@@ -80,26 +77,6 @@ public class AptDealInsertJobConfig {
     @Bean
     public Tasklet guLawdCdTasklet(LawdRepository lawdRepository) {
         return new GuLawdTasklet(lawdRepository);
-    }
-
-    @JobScope
-    @Bean
-    public Step contextPrintStep(Tasklet contextPrintTasklet) {
-        return stepBuilderFactory.get("contextPrintStep")
-                .tasklet(contextPrintTasklet)
-                .build();
-    }
-
-    // jobExecutionContext 파라미터를 통해 executionContext 값을 가져올 수 있음
-    @StepScope
-    @Bean
-    public Tasklet contextPrintTasklet(
-            @Value("#{jobExecutionContext['guLawdCd']}") String guLawdCd
-    ) {
-        return ((contribution, chunkContext) -> {
-            System.out.println("[contextPrintStep] guLawdCd = " + guLawdCd);
-            return RepeatStatus.FINISHED;
-        });
     }
 
     @JobScope
@@ -140,9 +117,10 @@ public class AptDealInsertJobConfig {
 
     @StepScope
     @Bean
-    public ItemWriter<AptDealDto> aptDealWriter() {
-        return item -> {
-            item.forEach(System.out::println);
+    public ItemWriter<AptDealDto> aptDealWriter(AptDealService aptDealService) {
+        return items -> {
+            items.forEach(aptDealService::upsert);
+            System.out.println("=============Writing Completed===========");
         };
     }
 }
