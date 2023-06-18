@@ -1,13 +1,16 @@
 package com.example.housebatch.job.notify;
 
 
+import com.example.housebatch.adapter.FakeSendService;
+import com.example.housebatch.core.dto.AptDto;
 import com.example.housebatch.core.dto.NotificationDto;
 import com.example.housebatch.core.entity.AptNotification;
 import com.example.housebatch.core.repository.AptNotificationRepository;
+import com.example.housebatch.core.repository.LawdRepository;
+import com.example.housebatch.core.service.AptDealService;
 import com.example.housebatch.job.validator.DealDateParameterValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.aspectj.weaver.ast.Not;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
@@ -19,12 +22,15 @@ import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.data.RepositoryItemReader;
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 @Configuration
 @RequiredArgsConstructor
@@ -70,20 +76,34 @@ public class AptNotificationJobConfig {
 
     @StepScope
     @Bean
-    public ItemProcessor<AptNotification, NotificationDto> aptNotificationProcessor() {
-        return new ItemProcessor<AptNotification, NotificationDto>() {
-            @Override
-            public NotificationDto process(AptNotification item) throws Exception {
+    public ItemProcessor<AptNotification, NotificationDto> aptNotificationProcessor(
+            @Value("#{jobParameters['dealDate']}") String dealDate,
+            AptDealService aptDealService,
+            LawdRepository lawdRepository
+    ) {
+        return aptNotification -> {
+
+            List<AptDto> aptDtoList = aptDealService.findByGuLawdCdAndDealDate(aptNotification.getGuLawdCd(), LocalDate.parse(dealDate));
+
+            if (aptDtoList.isEmpty()) {
                 return null;
             }
+
+            String guName = lawdRepository.findByLawdCd(aptNotification.getGuLawdCd() + "00000")
+                    .orElseThrow().getLawdDong();
+
+            return NotificationDto.builder()
+                    .email(aptNotification.getEmail())
+                    .guName(guName)
+                    .count(aptDtoList.size())
+                    .aptDeals(aptDtoList)
+                    .build();
         };
     }
 
     @StepScope
     @Bean
-    public ItemWriter<NotificationDto> aptNotificationWriter() {
-        return items -> {
-
-        };
+    public ItemWriter<NotificationDto> aptNotificationWriter(FakeSendService fakeSendService) {
+        return items -> items.forEach(item -> fakeSendService.send(item.getEmail(), item.toMessage()));
     }
 }

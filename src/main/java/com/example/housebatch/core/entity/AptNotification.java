@@ -29,7 +29,7 @@ public class AptNotification {
 
     @CreatedDate
     @Column(nullable = false)
-    private LocalDateTime cretaedAt;
+    private LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(nullable = false)
