@@ -106,4 +106,14 @@ public class AptNotificationJobConfig {
     public ItemWriter<NotificationDto> aptNotificationWriter(FakeSendService fakeSendService) {
         return items -> items.forEach(item -> fakeSendService.send(item.getEmail(), item.toMessage()));
     }
+
+//    @Bean
+//    public ItemWriter<NotificationDto> sendPostTest() {
+//        return list -> {
+//            list.forEach(l -> System.out.println(l.toString()));
+//            new RestTemplate().postForObject(
+//                    "http://localhost:8080/api/batch/mail", list, Object.class
+//            );
+//        };
+//    }
 }
